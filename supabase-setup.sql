@@ -1,4 +1,7 @@
 -- Closet Shuffle: database + photo storage setup
+-- Paste this whole file into Supabase → SQL Editor → New query, then click Run.
+-- Safe to run again if something goes wrong halfway.
+
 -- 1. Clothing items (one row per photo)
 create table if not exists public.items (
   id          uuid primary key default gen_random_uuid(),
@@ -20,6 +23,14 @@ create table if not exists public.fits (
 
 create index if not exists items_user_idx on public.items(user_id);
 create index if not exists fits_user_idx  on public.fits(user_id);
+
+-- Signed-in people may use these tables (the rules below still limit them to their own rows)
+grant select, insert, update, delete on public.items, public.fits to authenticated;
+
+-- Tiny function the GitHub "keep awake" ping calls. It returns 1 and reads nothing.
+create or replace function public.ping() returns int language sql stable as $$ select 1 $$;
+revoke all on function public.ping() from public;
+grant execute on function public.ping() to anon, authenticated;
 
 -- 3. Everyone only ever sees their own rows
 alter table public.items enable row level security;

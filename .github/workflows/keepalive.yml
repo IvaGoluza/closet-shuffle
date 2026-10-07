@@ -16,6 +16,17 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          curl -fsS "$SUPABASE_URL/rest/v1/items?select=id&limit=1" \
-            -H "apikey: $SUPABASE_KEY" -o /dev/null
-          echo "Supabase pinged"
+          # tidy up common copy-paste slips: spaces, quotes, trailing slash
+          URL=$(printf '%s' "$SUPABASE_URL" | tr -d " \"'\r\n")
+          URL=${URL%/}
+          KEY=$(printf '%s' "$SUPABASE_KEY" | tr -d " \"'\r\n")
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "SUPABASE_URL or SUPABASE_KEY secret is missing or empty."; exit 1
+          fi
+          case "$URL" in https://*.supabase.co) ;; *)
+            echo "SUPABASE_URL should look like https://YOUR-PROJECT-ID.supabase.co"; exit 1;; esac
+
+          CODE=$(curl -sS -o body.txt -w '%{http_code}' -X POST "$URL/rest/v1/rpc/ping" \
+            -H "apikey: $KEY" -H "Content-Type: application/json" -d '{}')
+          echo "Supabase answered HTTP $CODE: $(cat body.txt)"
+          [ "$CODE" -lt 400 ] || exit 1
